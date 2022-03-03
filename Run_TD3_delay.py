@@ -1,14 +1,13 @@
 import argparse
-import datetime
 import gym
 import numpy as np
 import itertools
 import torch
 from Algorithm.TD3 import TD3
-from Common.Utils import set_seed, Eval, log_start, log_write
+from Common.Utils import set_seed, Eval, log_start, log_write, Action_Delay
 
 parser = argparse.ArgumentParser(description='PyTorch Soft Actor-Critic Args')
-parser.add_argument('--env-name', default="InvertedPendulumSwingDoubleLength-v2",help='Mujoco Gym environment (default: HalfCheetah-v2)')
+parser.add_argument('--env-name', default="HalfCheetah-v2",help='Mujoco Gym environment (default: HalfCheetah-v2)')
 parser.add_argument('--policy', default="Actor",help='Policy Type: Gaussian | Deterministic (default: Gaussian)')
 parser.add_argument('--automatic_entropy_tuning', type=bool, default=False, metavar='G',help='Automaically adjust α (default: False)')
 parser.add_argument('--eval', type=bool, default=True,help='Evaluates a policy a policy every 10 episode (default: True)')
@@ -29,7 +28,7 @@ args = parser.parse_args()
 
 # log
 def main(iteration):
-    log_start("TD3_double_",iteration,log_flag=True)
+    log_start("TD3_delay_",iteration,log_flag=True,dir="./Result_save/")
     args.seed=set_seed(args.seed)
     args.seed = args.seed + 1
     print("SEED : ", args.seed)
@@ -44,6 +43,9 @@ def main(iteration):
     action_limit = env.action_space.high[0]
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
+
+    action_buffer = Action_Delay(env.action_space.shape[0],3)
+
 
     # Agent
     agent = TD3(env.observation_space.shape[0], env.action_space, args)
@@ -62,8 +64,12 @@ def main(iteration):
         while not done:
             if args.start_steps > total_numsteps:
                 action = env.action_space.sample() / action_limit
+                action_buffer.append(action)
+                print("====================================")
+                print(action_buffer.queue)
             else:
                 action = (agent.select_action(state) + 0.1 * np.random.normal(0.0, 1.0, [env.action_space.shape[0]])).clip(-1.0,1.0)
+                action_buffer.append(action)
 
             if len(agent.buffer) > args.batch_size:
                 # Number of updates per step in environment
@@ -73,7 +79,7 @@ def main(iteration):
 
                     updates += 1
 
-            next_state, reward, done, _ = env.step(action * action_limit)  # Step
+            next_state, reward, done, _ = env.step(action_buffer.pop() * action_limit)  # Step
             episode_steps += 1
             total_numsteps += 1
             episode_reward += reward
@@ -89,7 +95,7 @@ def main(iteration):
                 print("----------------------------------------")
                 print("Test Episodes: {}, Min. Return:{:.2f} Avg. Return: {:.2f} Max Return: {:.2f}".format(total_numsteps,Min_test_return,Avg_test_return,Max_test_return))
                 print("----------------------------------------")
-                log_write("TD3_double_", iteration, log_flag=True,total_step=total_numsteps,result=[Min_test_return,Avg_test_return,Max_test_return])
+                log_write("TD3_delay_", iteration, log_flag=True,total_step=total_numsteps,result=[Min_test_return,Avg_test_return,Max_test_return],dir="./Result_save/")
                 # torch.save(agent.actor.state_dict() ,'./model_save/actor_double.pth')
                 # torch.save(agent.critic.state_dict(), './model_save/critic_double.pth')
 

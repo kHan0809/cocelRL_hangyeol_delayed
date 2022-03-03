@@ -3,6 +3,7 @@ import gym
 import random
 import torch
 import torch.nn as nn
+from collections import deque
 
 
 def Eval(eval_env, agent, eval_num,render):
@@ -116,4 +117,16 @@ def weight_init(m):
         mid = m.weight.size(2) // 2
         gain = nn.init.calculate_gain('relu')
         nn.init.orthogonal_(m.weight.data[:, :, mid, mid], gain)
+
+class Action_Delay():
+    def __init__(self,action_dim,delay_len):
+        self.queue = []
+        for i in range(delay_len):
+            self.append((np.random.normal(0.0, 1.0, [action_dim])*0.5).clip(-1.0,1.0).astype('float32'))
+    def append(self,action):
+        self.queue.append(action)
+    def pop(self):
+        return self.queue.pop(0)
+
+
 
