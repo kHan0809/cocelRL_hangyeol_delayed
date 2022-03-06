@@ -25,6 +25,27 @@ def Eval(eval_env, agent, eval_num,render):
         reward_history.append(reward_sum)
     return min(reward_history), sum(reward_history)/len(reward_history), max(reward_history)
 
+def Eval_delay(eval_env, agent, Eval_action_buffer, eval_num, render):
+    reward_history = []
+    max_action = float(eval_env.action_space.high[0])
+    for eval_iter in range(eval_num):
+        state = eval_env.reset()
+        reward_sum = 0
+        for eval_step in range(eval_env._max_episode_steps):
+            if (eval_iter == eval_num-1)&(render):
+                eval_env.render()
+            action = agent.select_predict_action(state,Eval_action_buffer.queue)
+            Eval_action_buffer.append(action.squeeze().detach().cpu().numpy())
+            next_state, reward, terminal, _ = eval_env.step(Eval_action_buffer.action()*max_action)
+            reward_sum += reward
+            state = next_state
+            Eval_action_buffer.pop()
+            if terminal:
+                break
+
+        reward_history.append(reward_sum)
+    return min(reward_history), sum(reward_history)/len(reward_history), max(reward_history)
+
 def log_start(algo_name,iter,log_flag = False,dir=None):
     if log_flag:
         if dir == None:
@@ -127,6 +148,8 @@ class Action_Delay():
         self.queue.append(action)
     def pop(self):
         return self.queue.pop(0)
+    def action(self):
+        return self.queue[0]
 
 
 

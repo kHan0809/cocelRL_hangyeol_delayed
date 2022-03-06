@@ -20,6 +20,9 @@ class ReplayMemory:
         batch = random.sample(self.buffer, batch_size)
         state, action, reward, next_state, done = map(np.stack, zip(*batch))
         return state, action, reward, next_state, done
+    def sample_all(self):
+        state, action, reward, next_state, done = map(np.stack, zip(*self.buffer))
+        return state, action, reward, next_state, done
 
     def __len__(self):
         return len(self.buffer)
@@ -44,7 +47,6 @@ class ReplayMemory:
 
 
 class Buffer():
-
     def __init__(self, state_dim, action_dim, buffer_size,seed):
         random.seed(seed)
         self.states = np.zeros([buffer_size, state_dim], dtype=np.float32)
@@ -66,5 +68,6 @@ class Buffer():
     def get_batch(self, batch_size):
         idxs = np.random.randint(0, self.size, size=batch_size)
         return self.states[idxs], self.actions[idxs], self.rewards[idxs], self.next_states[idxs], self.dones[idxs]
+
     def __len__(self):
         return self.size
