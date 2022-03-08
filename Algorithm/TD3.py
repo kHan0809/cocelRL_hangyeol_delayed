@@ -86,7 +86,7 @@ class TD3():
         critic_loss.backward()
         self.critic_optimizer.step()
         #===============transition train==========================================
-        pred_next_state = self.state_predict.forward_4_train(state_batch.shape[0],state_batch,action_buffer_batch[:, 1, :].unsqueeze(1))
+        pred_next_state = self.state_predict.forward_4_train(state_batch.shape[0],state_batch,action_buffer_batch[:, 0, :].unsqueeze(1))
         trans_loss = F.mse_loss(pred_next_state.squeeze(1), next_state_batch)
 
         self.F_opt.zero_grad()

@@ -61,7 +61,7 @@ class State_Predict(nn.Module):
         self.os_dim     = state_dim
 
         self.GRU = nn.GRU(input_size=self.state_dim, hidden_size=self.state_dim, num_layers=1,batch_first=True)
-        self.hidden0 = torch.randn(1,1,self.state_dim).to(device=device)
+        self.hidden0 = torch.zeros(1,1,self.state_dim).to(device=device)
         #======predictive architecture=====
         self.N = nn.Linear(self.state_dim + self.action_dim + self.state_dim, self.state_dim)
         self.D = nn.Linear(self.state_dim + self.action_dim + self.state_dim, self.state_dim)
@@ -78,7 +78,6 @@ class State_Predict(nn.Module):
     def forward_batch(self,batch_size,state,action_buffer):
         hidden0 = self.hidden0.repeat(1,batch_size,1).to(device=state.device) #hidden0 size = (1,997,17) (1, batch, state_dim)
         state = state.unsqueeze(1)
-
         o, hidden = self.GRU(state, hidden0)
         for i in range(self.delay):
             state = self.Predict(state, action_buffer[:,i,:].unsqueeze(1), o)
