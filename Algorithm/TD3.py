@@ -53,7 +53,7 @@ class TD3():
         return self.actor(o)
 
     def update_parameters(self, batch_size, updates, delay):
-        state_batch, action_buffer_batch, reward_batch, next_state_batch, mask_batch = self.buffer.sample_all()
+        state_batch, action_buffer_batch, reward_batch, next_state_batch, mask_batch = self.buffer.sample_all() 
 
         # =======================change delayed reward========================================
         state_batch = torch.FloatTensor(state_batch).to(self.device)[:-delay,:]
@@ -85,6 +85,7 @@ class TD3():
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
         self.critic_optimizer.step()
+
         #===============transition train==========================================
         pred_next_state = self.state_predict.forward_4_train(state_batch.shape[0],state_batch,action_buffer_batch[:, 0, :].unsqueeze(1))
         trans_loss = F.mse_loss(pred_next_state.squeeze(1), next_state_batch)
@@ -92,12 +93,10 @@ class TD3():
         self.F_opt.zero_grad()
         self.N_opt.zero_grad()
         self.D_opt.zero_grad()
-        self.GRU_optimizer.zero_grad()
         trans_loss.backward()
         self.F_opt.step()
         self.N_opt.step()
         self.D_opt.step()
-        self.GRU_optimizer.step()
         #==================================actor train==========================
         if (updates%2)==0:
             # with torch.autograd.detect_anomaly():
@@ -108,23 +107,22 @@ class TD3():
             actor_loss = -self.critic.Q1(torch.cat((state_batch, pi.squeeze(1)),1)).mean()
             # Optimize the actor
             self.actor_optimizer.zero_grad()
-            actor_loss.backward(retain_graph=True)
+            actor_loss.backward()
             self.actor_optimizer.step()
 
-
             #이 부분 해결해야되는데...
-            state_batch_clone = state_batch.clone()
-            o2 = self.state_predict.forward_batch(state_batch.shape[0], state_batch.clone(), action_buffer_batch[:,:-1,:].clone())
-            pi2 = self.actor(o2)
-
-            GRU_loss = -self.critic.Q1(torch.cat((state_batch_clone, pi2.squeeze(1)), 1)).mean()
-            self.GRU_optimizer.zero_grad()
-            GRU_loss.backward()
-            self.GRU_optimizer.step()
-
-            # Update tareget networks
-            soft_update(self.critic_target, self.critic, self.tau)
-            soft_update(self.actor_target,  self.actor, self.tau)
+            # state_batch_clone = state_batch.clone()
+            # o2 = self.state_predict.forward_batch(state_batch.shape[0], state_batch_clone, action_buffer_batch[:,:-1,:].clone())
+            # pi2 = self.actor(o2)
+            #
+            # GRU_loss = -self.critic.Q1(torch.cat((state_batch_clone, pi2.squeeze(1)), 1)).mean()
+            # self.GRU_optimizer.zero_grad()
+            # GRU_loss.backward()
+            # self.GRU_optimizer.step()
+            #
+            # # Update tareget networks
+            # soft_update(self.critic_target, self.critic, self.tau)
+            # soft_update(self.actor_target,  self.actor, self.tau)
 
             return critic_loss.item(), actor_loss.item(), trans_loss.item()
 

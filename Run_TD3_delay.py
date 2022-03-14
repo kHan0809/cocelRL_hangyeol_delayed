@@ -27,7 +27,7 @@ parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',help
 parser.add_argument('--cuda', type=bool, default=True, help='run on CUDA (default: False)')
 parser.add_argument('--log', default=True, type=bool, help='use tensorboard summary writer to log, if false, cannot use the features below')
 
-parser.add_argument('--delay', type=int, default=2, help='Value target update per no. of updates per step (default: 1)')
+parser.add_argument('--delay', type=int, default=1, help='Value target update per no. of updates per step (default: 1)')
 args = parser.parse_args()
 
 # log
@@ -106,7 +106,7 @@ def main(iteration):
                 else:
                     critic_loss, trans_loss = agent.update_parameters(args.batch_size, updates, args.delay)
                 updates += 1
-            print("#Loss# critic : {:.2f}, actor : {:.2f}, trans : {:.2f}".format(critic_loss,actor_loss,trans_loss))
+            print("#Loss# critic : {:.3f}, actor : {:.3f}, trans : {:.3f}".format(critic_loss,actor_loss,trans_loss))
 
         if total_numsteps > args.num_steps:
             break
