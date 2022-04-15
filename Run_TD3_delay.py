@@ -15,14 +15,14 @@ parser.add_argument('--automatic_entropy_tuning', type=bool, default=False, meta
 parser.add_argument('--eval', type=bool, default=True,help='Evaluates a policy a policy every 10 episode (default: True)')
 parser.add_argument('--gamma', type=float, default=0.99, metavar='G',help='discount factor for reward (default: 0.99)')
 parser.add_argument('--tau', type=float, default=0.005, metavar='G',help='target smoothing coefficient(τ) (default: 0.005)')
-parser.add_argument('--lr', type=float, default=0.0003, metavar='G',help='learning rate (default: 0.0003)')
+parser.add_argument('--lr', type=float, default=0.001, metavar='G',help='learning rate (default: 0.0003)')
 parser.add_argument('--seed', type=int, default=-1, metavar='N',help='random seed (default: 123456)')
-parser.add_argument('--batch_size', type=int, default=256, metavar='N',help='batch size (default: 256)')
+parser.add_argument('--batch_size', type=int, default=100, metavar='N',help='batch size (default: 256)')
 parser.add_argument('--num_steps', type=int, default=300001, metavar='N',help='maximum number of steps (default: 1000000)')
 parser.add_argument('--hidden_size', type=int, default=256, metavar='N',help='hidden size (default: 256)')
-parser.add_argument('--updates_per_step', type=int, default=1, metavar='N',help='model updates per simulator step (default: 1)')
-parser.add_argument('--start_steps', type=int, default=10000, metavar='N',help='Steps sampling random actions (default: 10000)')
-parser.add_argument('--target_update_interval', type=int, default=1, metavar='N',help='Value target update per no. of updates per step (default: 1)')
+parser.add_argument('--update_start_steps', type=int, default=1000, metavar='N',help='Steps sampling random actions (default: 10000)')
+parser.add_argument('--update_every', type=int, default=50, metavar='N',help='update every 50(default) step')
+parser.add_argument('--start_steps', type=int, default=1000, metavar='N',help='Steps sampling random actions (default: 10000)')
 parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',help='size of replay buffer (default: 10000000)')
 parser.add_argument('--cuda', type=bool, default=True, help='run on CUDA (default: False)')
 parser.add_argument('--log', default=True, type=bool, help='use tensorboard summary writer to log, if false, cannot use the features below')
@@ -63,7 +63,7 @@ def main(iteration):
         done = False
 
         state = env.reset()
-        agent.buffer.__init__(args.replay_size,args.seed)
+        agent.buffer4transition.__init__(args.replay_size,args.seed)
         action_buffer = Action_Delay(env.action_space.shape[0], args.delay)
 
         while not done:
@@ -72,9 +72,13 @@ def main(iteration):
                 action_buffer.append(action)
             else:
                 action = (agent.select_predict_action(state,action_buffer.queue).squeeze().detach().cpu().numpy() + 0.1 * np.random.normal(0.0, 1.0, [env.action_space.shape[0]])).clip(-1.0,1.0)
+
                 action_buffer.append(action)
 
-
+            if total_numsteps >= args.update_start_steps and total_numsteps % args.update_every == 0 and len(agent.buffer.buffer) > args.batch_size:
+                for j in range(args.update_every):
+                    critic1_value, critic2_value, critic_loss, pi_loss = agent.update_parameters(args.batch_size, updates, args.delay)
+                    updates += 1
 
             next_state, reward, done, _ = env.step(action_buffer.action() * action_limit)  # Step
 
@@ -83,14 +87,16 @@ def main(iteration):
             episode_reward += reward
 
             mask = 1 if episode_steps == env._max_episode_steps else float(not done)
+
             agent.buffer.push(state, copy.deepcopy(action_buffer.queue), reward, next_state, mask)
+            agent.buffer4transition.push(state, copy.deepcopy(action_buffer.queue), reward, next_state, mask)
 
             state = next_state
             action_buffer.pop()
             #========================TEST or EVAL========================
             if (total_numsteps)%5000==0:
                 Eval_action_buffer = Action_Delay(env.action_space.shape[0], args.delay)
-                Min_test_return, Avg_test_return, Max_test_return = Eval_delay(test_env, agent, Eval_action_buffer, 10, False)
+                Min_test_return, Avg_test_return, Max_test_return = Eval_delay(test_env, agent, Eval_action_buffer, 3, False)
                 print("----------------------------------------")
                 print("Test Episodes: {}, Min. Return:{:.2f} Avg. Return: {:.2f} Max Return: {:.2f}".format(total_numsteps,Min_test_return,Avg_test_return,Max_test_return))
                 print("----------------------------------------")
@@ -100,17 +106,19 @@ def main(iteration):
 
         if total_numsteps > args.batch_size:
             # Number of updates per step in environment
-            for i in range(len(agent.buffer.buffer)):
-                if (updates % 2) == 0:
-                    critic_loss, actor_loss, trans_loss = agent.update_parameters(args.batch_size, updates, args.delay)
-                else:
-                    critic_loss, trans_loss = agent.update_parameters(args.batch_size, updates, args.delay)
-                updates += 1
-            print("#Loss# critic : {:.3f}, actor : {:.3f}, trans : {:.3f}".format(critic_loss,actor_loss,trans_loss))
+            for i in range(100):
+                transition_loss = agent.transition_update_parameters(args.delay)
+            print("Transition loss : {:.2f}".format(transition_loss))
 
         if total_numsteps > args.num_steps:
             break
         print("Episode: {}, total numsteps: {}, episode steps: {}, reward: {}".format(i_episode, total_numsteps,episode_steps,episode_reward))
+        if total_numsteps > args.update_start_steps:
+            print("Critic1        : {:.2f}".format(critic1_value))
+            print("Critic2        : {:.2f}".format(critic2_value))
+            print("Critic loss    : {:.2f}".format(critic_loss))
+            print("Policy loss    : {:.2f}".format(pi_loss))
+
     env.close()
 
 if __name__ == '__main__':
