@@ -18,16 +18,16 @@ parser.add_argument('--tau', type=float, default=0.005, metavar='G',help='target
 parser.add_argument('--lr', type=float, default=0.001, metavar='G',help='learning rate (default: 0.0003)')
 parser.add_argument('--seed', type=int, default=-1, metavar='N',help='random seed (default: 123456)')
 parser.add_argument('--batch_size', type=int, default=100, metavar='N',help='batch size (default: 256)')
-parser.add_argument('--num_steps', type=int, default=300001, metavar='N',help='maximum number of steps (default: 1000000)')
+parser.add_argument('--num_steps', type=int, default=1000001, metavar='N',help='maximum number of steps (default: 1000000)')
 parser.add_argument('--hidden_size', type=int, default=256, metavar='N',help='hidden size (default: 256)')
 parser.add_argument('--update_start_steps', type=int, default=1000, metavar='N',help='Steps sampling random actions (default: 10000)')
 parser.add_argument('--update_every', type=int, default=50, metavar='N',help='update every 50(default) step')
-parser.add_argument('--start_steps', type=int, default=1000, metavar='N',help='Steps sampling random actions (default: 10000)')
+parser.add_argument('--start_steps', type=int, default=10000, metavar='N',help='Steps sampling random actions (default: 10000)')
 parser.add_argument('--replay_size', type=int, default=1000000, metavar='N',help='size of replay buffer (default: 10000000)')
 parser.add_argument('--cuda', type=bool, default=True, help='run on CUDA (default: False)')
 parser.add_argument('--log', default=True, type=bool, help='use tensorboard summary writer to log, if false, cannot use the features below')
 
-parser.add_argument('--delay', type=int, default=1, help='Value target update per no. of updates per step (default: 1)')
+parser.add_argument('--delay', type=int, default=2, help='Value target update per no. of updates per step (default: 1)')
 args = parser.parse_args()
 
 # log
@@ -67,12 +67,12 @@ def main(iteration):
         action_buffer = Action_Delay(env.action_space.shape[0], args.delay)
 
         while not done:
+            # env.render()
             if args.start_steps > total_numsteps:
                 action = env.action_space.sample() / action_limit
                 action_buffer.append(action)
             else:
-                action = (agent.select_predict_action(state,action_buffer.queue).squeeze().detach().cpu().numpy() + 0.1 * np.random.normal(0.0, 1.0, [env.action_space.shape[0]])).clip(-1.0,1.0)
-
+                action = (agent.select_predict_action(state,action_buffer.queue) + 0.1 * np.random.normal(0.0, 1.0, [env.action_space.shape[0]])).clip(-1.0,1.0)
                 action_buffer.append(action)
 
             if total_numsteps >= args.update_start_steps and total_numsteps % args.update_every == 0 and len(agent.buffer.buffer) > args.batch_size:
@@ -98,7 +98,7 @@ def main(iteration):
                 Eval_action_buffer = Action_Delay(env.action_space.shape[0], args.delay)
                 Min_test_return, Avg_test_return, Max_test_return = Eval_delay(test_env, agent, Eval_action_buffer, 3, False)
                 print("----------------------------------------")
-                print("Test Episodes: {}, Min. Return:{:.2f} Avg. Return: {:.2f} Max Return: {:.2f}".format(total_numsteps,Min_test_return,Avg_test_return,Max_test_return))
+                print("Test Episodes: {}, Min. Return:{:.2f} Avg. Return: {:.2f} Max Return: {:.2f}".format(total_numsteps,Min_test_return.item(),Avg_test_return.item(),Max_test_return.item()))
                 print("----------------------------------------")
                 log_write("TD3_delay_", iteration, log_flag=True,total_step=total_numsteps,result=[Min_test_return,Avg_test_return,Max_test_return],dir="./Result_save/")
                 # torch.save(agent.actor.state_dict() ,'./model_save/actor_double.pth')
@@ -114,13 +114,13 @@ def main(iteration):
             break
         print("Episode: {}, total numsteps: {}, episode steps: {}, reward: {}".format(i_episode, total_numsteps,episode_steps,episode_reward))
         if total_numsteps > args.update_start_steps:
-            print("Critic1        : {:.2f}".format(critic1_value))
-            print("Critic2        : {:.2f}".format(critic2_value))
-            print("Critic loss    : {:.2f}".format(critic_loss))
-            print("Policy loss    : {:.2f}".format(pi_loss))
+            print("Critic1        : {:.4f}".format(critic1_value))
+            print("Critic2        : {:.4f}".format(critic2_value))
+            print("Critic loss    : {:.4f}".format(critic_loss))
+            print("Policy loss    : {:.4f}".format(pi_loss))
 
     env.close()
 
 if __name__ == '__main__':
-    for iteration in range(1, 2):
+    for iteration in range(2, 3):
         main(iteration)

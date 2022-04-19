@@ -35,7 +35,7 @@ def Eval_delay(eval_env, agent, Eval_action_buffer, eval_num, render):
             if (eval_iter == eval_num-1)&(render):
                 eval_env.render()
             action = agent.select_predict_action(state,Eval_action_buffer.queue)
-            Eval_action_buffer.append(action.squeeze().detach().cpu().numpy())
+            Eval_action_buffer.append(action)
             next_state, reward, terminal, _ = eval_env.step(Eval_action_buffer.action()*max_action)
             reward_sum += reward
             state = next_state

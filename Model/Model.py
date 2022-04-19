@@ -111,7 +111,7 @@ class State_Predict(nn.Module):
         return o
 
     def forward_batch(self,batch_size,state,action_buffer):
-        hidden0 = self.hidden0.repeat(1,batch_size,1).to(device=state.device) #hidden0 size = (1,997,17) (1, batch, state_dim)
+        hidden0 = self.hidden0.repeat(1,batch_size,1).to(device=state.device) #hidden0 size = (1,1000,17) (1, batch, state_dim)
         state = state.unsqueeze(1)
         o, hidden = self.GRU(state, hidden0)
         for i in range(self.delay):
